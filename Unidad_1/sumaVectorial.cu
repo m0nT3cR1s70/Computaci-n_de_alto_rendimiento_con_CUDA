@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#define N 2048
+#define N 90000000
 
 
 double cpuTime(){
@@ -55,8 +55,11 @@ void showVector(float *A, int size){
 __global__ void sumaOnGPU(float *dA, float *dB, float *dC, int size){
   //int idx = threadIdx.x;
   //int idx = blockIdx.x;
+  // Patron acceso vectorial
   int idx = threadIdx.x + (blockIdx.x * blockDim.x);
-  dC[idx] = dA[idx]+dB[idx];
+  if(idx < size){
+      dC[idx] = dA[idx]+dB[idx];
+  }
 }
 
 
@@ -89,10 +92,11 @@ int main(){
   cudaMemcpy(d_B,h_B,nBytes,cudaMemcpyHostToDevice);
   cudaMemcpy(d_C,h_C,nBytes,cudaMemcpyHostToDevice);
   // Paso 3. Realizar la suma
-  dim3 bloque(1);
   dim3 hilos(1024); 
+  dim3 bloque((N+hilos.x-1)/hilos.x);    // 87890.625 bloques -> (87891)(1024) = 90,000,384 
   tic = cpuTime();
   sumaOnGPU<<<bloque,hilos>>>(d_A,d_B,d_C,N);
+  
   toc = cpuTime();
   tictocP = toc - tic;
   printf("Elapsed time for GPU: %lf segundos\n",tictocP);
@@ -104,8 +108,9 @@ int main(){
   toc = cpuTime();
   tictocS = toc - tic;
   printf("Elapsed time for CPU: %lf segundos\n",tictocS);
+  printf("Speed-up: %lf \n",tictocS/tictocP);
   // Imprime resultado
-  showVector(h_res,N);
+  //showVector(h_res,N);
   compareResults(h_res,h_C,N);
   //printf("\n\n");
   //showVector(h_C,N);
